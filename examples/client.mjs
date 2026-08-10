@@ -59,6 +59,21 @@ export function smartx(token = process.env.SMARTX_TOKEN) {
         cents_price: centsPrice,
         share_amount: shareAmount,
         usdc_budget: usdcBudget
-      })
+      }),
+
+    // v2 only. The unversioned /cancel_order answers "success" for order ids
+    // that never existed, so falling back to it would make every cancel look
+    // like it worked. Confirm with cancelAndVerify instead.
+    cancelOrder: orderId =>
+      post('/service/poly_trade/v2/cancel_order', { order_id: String(orderId) }),
+
+    async cancelAndVerify(orderId) {
+      await this.cancelOrder(orderId).catch(() => null);
+      await new Promise(r => setTimeout(r, 1500));
+      const { list } = await this.orders({});
+      const row = list.find(o => o.order_id === String(orderId));
+      const gone = !row || /cancel/i.test(row.order_status || '');
+      return { cancelled: gone, status: row?.order_status ?? 'not in list' };
+    }
   };
 }

@@ -18,13 +18,13 @@ wallet plumbing, no gas handling, and no key management in your client.
 | | |
 |---|---|
 | Place an order | limit or market, buy or sell, sized in shares or in USDC |
+| Cancel an order | one at a time, and always verify. See [Orders](docs/orders.md#cancel-an-order) |
 | List your orders | with fill state, average price, and failure reasons |
 | List your positions | shares, entry, mark, realised and unrealised PnL |
 | Inspect one market | your position in a single market |
 | Read market data | prices and outcome ids for any listed market |
 
-Cancelling an order does not have a confirmed endpoint yet. See
-[Orders](docs/orders.md#cancelling).
+There is no endpoint for your cash balance. See [Positions](docs/positions.md#cash-balance).
 
 ## Quickstart
 

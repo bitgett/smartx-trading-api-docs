@@ -102,19 +102,52 @@ Those are micro-USDC, so 6 decimal places: `2211247` is $2.21. Note that resting
 orders are counted against you. Available is not your balance, it is your
 balance minus everything already working.
 
-## Cancelling
-
-**Not documented, because we have not confirmed it.** Three paths were tried
-against the live API and none responded as a cancel:
+## Cancel an order
 
 ```
-/service/poly_trade/v2/cancel_order
-/service/poly_trade/cancel_order
-/service/poly_trade/v2/order/cancel
+POST /service/poly_trade/v2/cancel_order
 ```
 
-If you need to cancel today, do it in the web app. If you find the real
-endpoint, please open an issue and we will add it.
+```json
+{ "order_id": "..." }
+```
+
+The field is `order_id`, singular. There is no batch form: sending `order_ids`
+returns `60030 order_id is required`. To cancel several orders, loop.
+
+### Two paths exist and they behave differently
+
+| path | on a valid order | on an id that does not exist |
+|---|---|---|
+| `v2/cancel_order` | cancels | `50000 internal server error` |
+| `cancel_order` | cancels | **`200 success`** |
+
+That second row is not a typo. The unversioned `cancel_order` returns
+`code: 200, msg: "success"` for an order id that was never real, verified
+against the live API on 2026-08-10.
+
+**Use `v2/cancel_order`, and verify afterwards regardless.** A success response
+from either path is not evidence the order is gone.
+
+```js
+await api.cancelOrder(orderId);
+
+// the response cannot be trusted; the order list can
+const { list } = await api.orders({});
+const still = list.find(o => o.order_id === orderId);
+if (still && !/cancel/i.test(still.order_status)) {
+  throw new Error(`cancel did not take: still ${still.order_status}`);
+}
+```
+
+Cancelled orders show up in the order list with `order_status: "cancelled"`.
+
+### If you are falling back between paths, do not
+
+A retry loop that tries `v2/cancel_order` and falls through to `cancel_order` on
+failure will report success every time, because the fallback always succeeds.
+The first path failing is real information and swallowing it turns a failed
+cancel into a silent one. Ask the order list instead.
 
 ## Before you go live
 
