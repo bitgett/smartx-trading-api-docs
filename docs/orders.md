@@ -12,8 +12,8 @@ POST /service/poly_trade/v2/new_order
   "token_id": "1072612513038138945515584425425304421871954896209417416257930245721829931930",
   "side": "BUY",
   "cents_price": 39,
-  "share_amount": 631,
-  "usdc_budget": 249.25
+  "share_amount": 5,
+  "usdc_budget": 25.00
 }
 ```
 
@@ -23,8 +23,11 @@ POST /service/poly_trade/v2/new_order
 | `token_id` | string | the outcome you are buying. See [Markets](markets.md) |
 | `side` | string | `BUY` or `SELL` |
 | `cents_price` | integer | 1 to 99. Whole cents only, `39` means $0.39 per share |
-| `share_amount` | integer | **not honoured.** See below |
-| `usdc_budget` | number | what you are prepared to spend, fees included. This is what sets your size |
+| `share_amount` | integer | required by the API but **not honoured**. See below |
+| `usdc_budget` | number | what you are willing to spend. This is what actually sets your size |
+
+That body buys about 64 shares, not 5: at 39c a $25 budget is `25 / 0.39`. See
+below before you size anything.
 
 `token_id` is a long decimal string. Send it as a string. Put it through a
 JavaScript number and you will silently corrupt it past 2^53.
@@ -59,8 +62,10 @@ hedging above all, has to use those and not the numbers you sent.
 **Sizes are fractional.** `9.4926` and `7.5` shares are normal results. Do not
 assume integers.
 
-**Minimum 5 shares.** Below that you get `60307 limit order shares must be >= 5`.
-At a 2c limit that is a $0.10 floor; at 50c it is $2.50.
+**Minimum 5 shares, checked against the derived size.** A budget that works out
+to fewer than 5 shares is rejected with `60307 limit order shares must be >= 5`,
+even if the `share_amount` you sent was 5 or more. So the floor is a spend, and
+it moves with the price: $0.10 at a 2c limit, $2.50 at 50c.
 
 ### You do not need a balance check
 
@@ -203,8 +208,9 @@ Send one request to `cancel_order` and ask the order list what happened.
 
 ## Before you go live
 
-**Size for fees.** `usdc_budget` has to cover the fee as well as the shares. A
-budget of exactly `shares × price` fails.
+**Read your fill size back.** `usdc_budget` decides how many shares you get, and
+if the budget runs past your free balance it is trimmed with no error. The order
+record is the only place the real number appears.
 
 **Watch the whole set of resting orders.** Available balance is reduced by every
 open order, not just filled ones. A stack of unfilled limits will starve the

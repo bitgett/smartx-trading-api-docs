@@ -50,8 +50,10 @@ export function smartx(token = process.env.SMARTX_TOKEN) {
     market: slug =>
       get(`/analytics/api/v1/markets/slug?slug=${encodeURIComponent(slug)}`),
 
-    // tokenId stays a string end to end; it does not survive a JS number
-    placeOrder: ({ tokenId, side, centsPrice, shareAmount, usdcBudget, orderType = 'LIMIT' }) =>
+    // usdcBudget is what decides your size; shareAmount is sent because the API
+    // wants the field, and comes back overwritten. tokenId stays a string end to
+    // end, it does not survive a JS number.
+    placeOrder: ({ tokenId, side, centsPrice, usdcBudget, shareAmount = 5, orderType = 'LIMIT' }) =>
       post('/service/poly_trade/v2/new_order', {
         order_type: orderType,
         token_id: String(tokenId),
@@ -61,9 +63,9 @@ export function smartx(token = process.env.SMARTX_TOKEN) {
         usdc_budget: usdcBudget
       }),
 
-    // Unversioned, because v2/cancel_order returns 50000 "internal server
-    // error" on every call while cancelling perfectly well. Neither response is
-    // evidence either way, so use cancelAndVerify.
+    // Unversioned on purpose. v2/cancel_order cancels correctly but answers
+    // 50000 when it worked and 200 when there was nothing to cancel, so its
+    // status code is worse than useless.
     cancelOrder: orderId =>
       post('/service/poly_trade/cancel_order', { order_id: String(orderId) }),
 

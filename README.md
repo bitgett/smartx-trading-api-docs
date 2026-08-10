@@ -16,7 +16,7 @@ wallet plumbing, no gas handling, and no key management in your client.
 
 | | |
 |---|---|
-| Place an order | limit or market, buy or sell, sized in shares or in USDC |
+| Place an order | limit or market, buy or sell, sized in USDC |
 | Cancel an order | one at a time, and always verify. See [Orders](docs/orders.md#cancel-an-order) |
 | List your orders | with fill state, average price, and failure reasons |
 | List your positions | shares, entry, mark, realised and unrealised PnL |
@@ -27,9 +27,12 @@ There is no endpoint for your cash balance. See [Positions](docs/positions.md#ca
 
 ## Quickstart
 
+Node 18 or newer, no dependencies to install.
+
 ```bash
-git clone <this repo> && cd smartx-trading-api-docs
-npm install            # no dependencies, this just creates the lockfile
+git clone https://github.com/bitgett/smartx-trading-api-docs
+cd smartx-trading-api-docs
+
 export SMARTX_TOKEN="jwt eyJ..."      # see docs/authentication.md
 node examples/list-positions.mjs
 ```
@@ -84,6 +87,7 @@ say `msg: "success"`. Accept both or half the API will look broken. See
 
 ## Before you go live
 
-Read [Orders](docs/orders.md#before-you-go-live). Two things have cost real
-money in testing: assuming a `200` means the order filled, and sizing an order
-without leaving room for fees.
+Read [Orders](docs/orders.md#before-you-go-live). The one that has actually cost
+money is treating `200` as a fill: the order can fail later, the client never
+hears about it, and it keeps sizing the next order against money it no longer
+has.

@@ -1,7 +1,8 @@
 // Place a limit order, then confirm what actually happened.
 //
+// You size by SPEND, not by share count, because that is what the API honours.
 // Dry run by default. Nothing is sent without --live.
-//   node examples/place-order.mjs --slug <market-slug> --outcome Yes --price 39 --shares 25
+//   node examples/place-order.mjs --slug <market-slug> --outcome Yes --price 39 --spend 25
 //   node examples/place-order.mjs ... --live
 import { smartx } from './client.mjs';
 
@@ -10,7 +11,7 @@ const arg = (name, fallback) => {
   return i === -1 ? fallback : process.argv[i + 1];
 };
 const LIVE = process.argv.includes('--live');
-const MAX_USD = Number(arg('max', 150));   // a typo in --shares should not be able to spend the account
+const MAX_USD = Number(arg('max', 150));   // a typo in --spend should not be able to drain the account
 
 const fail = msg => { console.error(msg); process.exitCode = 1; };
 
@@ -18,11 +19,17 @@ async function main() {
   const slug = arg('slug');
   const outcomeName = arg('outcome', 'Yes');
   const cents = Number(arg('price'));
-  const shares = Number(arg('shares'));
+  const spend = Number(arg('spend'));
 
-  if (!slug || !cents || !shares) return fail('need --slug, --price (1-99), --shares');
+  if (!slug || !cents || !spend) return fail('need --slug, --price (1-99), --spend (USDC)');
   if (!Number.isInteger(cents) || cents < 1 || cents > 99) {
     return fail('--price must be a whole number of cents, 1 to 99');
+  }
+  // the minimum is checked against the derived size, not the share_amount sent
+  const expected = spend / (cents / 100);
+  if (expected < 5) {
+    return fail(`--spend ${spend} at ${cents}c works out to ${expected.toFixed(2)} shares; ` +
+      `the minimum is 5, so spend at least ${(5 * cents / 100).toFixed(2)}`);
   }
 
   const api = smartx();
@@ -36,17 +43,13 @@ async function main() {
     return fail(`no outcome "${outcomeName}". available: ${outcomes.map(o => o.outcome_text).join(', ')}`);
   }
 
-  // budget has to cover fees as well as the shares, so leave headroom
-  const notional = (cents / 100) * shares;
-  const budget = Number((notional * 1.05).toFixed(2));
-
-  if (budget > MAX_USD) {
-    return fail(`budget ${budget} exceeds the ${MAX_USD} cap. Raise it with --max if you mean it.`);
+  if (spend > MAX_USD) {
+    return fail(`spend ${spend} exceeds the ${MAX_USD} cap. Raise it with --max if you mean it.`);
   }
 
   console.log(`${market.question || slug}`);
-  console.log(`  BUY ${shares} sh of "${outcome.outcome_text}" at ${cents}c`);
-  console.log(`  notional ${notional.toFixed(2)}  budget ${budget.toFixed(2)} (fee headroom included)`);
+  console.log(`  BUY "${outcome.outcome_text}" at ${cents}c, spending ${spend.toFixed(2)} USDC`);
+  console.log(`  that is about ${expected.toFixed(4)} shares, if your balance covers it`);
 
   if (!LIVE) {
     console.log('\ndry run. add --live to send.');
@@ -57,12 +60,12 @@ async function main() {
     tokenId: outcome.token_id,
     side: 'BUY',
     centsPrice: cents,
-    shareAmount: shares,
-    usdcBudget: budget
+    usdcBudget: spend
   });
   console.log(`\naccepted: order_id ${placed.order_id} status ${placed.order_status}`);
 
-  // 2. accepted is not filled. Confirm on the order record.
+  // 2. Accepted is not filled, and the size you asked for is not the size you
+  //    got. Both answers live on the order record, not in the response above.
   console.log('confirming...');
   await new Promise(r => setTimeout(r, 3000));
 
@@ -73,6 +76,10 @@ async function main() {
     return;
   }
   console.log(`  status ${mine.order_status} / ${mine.exchange_status}`);
+  console.log(`  placed ${mine.share_amount} shares for ${mine.usdc_budget} USDC`);
+  if (Math.abs(Number(mine.usdc_budget) - spend) > 0.0001) {
+    console.log(`  note: trimmed from ${spend} — your free balance capped it`);
+  }
   console.log(`  filled ${mine.filled_share} of ${mine.share_amount} shares for ${mine.filled_usdc} USDC`);
   if (mine.error_msg) console.log(`  error: ${mine.error_msg}`);
 }
