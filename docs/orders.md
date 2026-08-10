@@ -23,11 +23,40 @@ POST /service/poly_trade/v2/new_order
 | `token_id` | string | the outcome you are buying. See [Markets](markets.md) |
 | `side` | string | `BUY` or `SELL` |
 | `cents_price` | integer | 1 to 99. Whole cents only, `39` means $0.39 per share |
-| `share_amount` | integer | number of shares |
-| `usdc_budget` | number | what you are prepared to spend, fees included |
+| `share_amount` | integer | **not honoured.** See below |
+| `usdc_budget` | number | what you are prepared to spend, fees included. This is what sets your size |
 
 `token_id` is a long decimal string. Send it as a string. Put it through a
 JavaScript number and you will silently corrupt it past 2^53.
+
+### `usdc_budget` sets your size, `share_amount` does not
+
+Send `share_amount: 5` and you will not get 5 shares. The platform sizes the
+order from `usdc_budget`, and `share_amount` comes back overwritten with what it
+actually placed. Three live orders on the same market at a 2c limit:
+
+| sent `share_amount` | sent `usdc_budget` | shares actually placed |
+|---|---|---|
+| 5 | 0.12 | 6 |
+| 5 | 0.12 | 6 |
+| 5 | 0.20 | 9.4926 |
+
+The first two are exactly `budget / price`. The third is about 5% short of it,
+with the difference held back against fees, even though this market reports
+`fee_rate: 0`. We could not derive a rule that predicts both, so do not build
+one into your sizing.
+
+**Two consequences.**
+
+Budget is the control. Set `usdc_budget` to what you are willing to spend and
+treat `share_amount` as a field you send because the API requires it.
+
+Read your size back. The order record carries the real `share_amount`,
+`qty_num` and `usdc_budget`. Anything that depends on position size, hedging in
+particular, has to use those and not the numbers you sent.
+
+Sizes can be fractional. `9.4926` shares is a normal result, so do not assume
+integers anywhere downstream.
 
 **Response**
 
@@ -105,49 +134,56 @@ balance minus everything already working.
 ## Cancel an order
 
 ```
-POST /service/poly_trade/v2/cancel_order
+POST /service/poly_trade/cancel_order
 ```
 
 ```json
-{ "order_id": "..." }
+{ "order_id": "0x2777438d…" }
 ```
 
 The field is `order_id`, singular. There is no batch form: sending `order_ids`
 returns `60030 order_id is required`. To cancel several orders, loop.
 
-### Two paths exist and they behave differently
+Cancelled orders appear in the order list as `order_status: "cancelled"` and
+`exchange_status: "CANCELED"`.
 
-| path | on a valid order | on an id that does not exist |
+### Two paths, and neither response tells the truth
+
+Both were run against real resting orders on 2026-08-10. Both cancelled. What
+they *said* differed:
+
+| path | did it cancel | what it returned |
 |---|---|---|
-| `v2/cancel_order` | cancels | `50000 internal server error` |
-| `cancel_order` | cancels | **`200 success`** |
+| `cancel_order` | yes | `200 success`, with the order detail |
+| `v2/cancel_order` | **yes** | `50000 internal server error` |
 
-That second row is not a typo. The unversioned `cancel_order` returns
-`code: 200, msg: "success"` for an order id that was never real, verified
-against the live API on 2026-08-10.
+`v2/cancel_order` reports a server error every time and cancels anyway. And
+`cancel_order` returns `200 success` for order ids that never existed, so its
+success does not prove anything either.
 
-**Use `v2/cancel_order`, and verify afterwards regardless.** A success response
-from either path is not evidence the order is gone.
+One lies negative, the other lies positive.
+
+**Use `cancel_order`, and confirm against the order list.**
 
 ```js
-await api.cancelOrder(orderId);
+await api.cancelOrder(orderId).catch(() => {});   // the response is not evidence
 
-// the response cannot be trusted; the order list can
+await new Promise(r => setTimeout(r, 1500));
 const { list } = await api.orders({});
-const still = list.find(o => o.order_id === orderId);
-if (still && !/cancel/i.test(still.order_status)) {
-  throw new Error(`cancel did not take: still ${still.order_status}`);
+const row = list.find(o => o.order_id === orderId);
+if (row && !/cancel/i.test(row.order_status)) {
+  throw new Error(`cancel did not take: still ${row.order_status}`);
 }
 ```
 
-Cancelled orders show up in the order list with `order_status: "cancelled"`.
+### Do not fall back between the two paths
 
-### If you are falling back between paths, do not
+A loop that tries `v2/cancel_order`, sees `50000`, and falls through to
+`cancel_order` will report success on every call no matter what happened,
+because the fallback always succeeds. Worse, the `50000` it was reacting to
+usually meant the cancel had already gone through.
 
-A retry loop that tries `v2/cancel_order` and falls through to `cancel_order` on
-failure will report success every time, because the fallback always succeeds.
-The first path failing is real information and swallowing it turns a failed
-cancel into a silent one. Ask the order list instead.
+Send one request and ask the order list what happened.
 
 ## Before you go live
 

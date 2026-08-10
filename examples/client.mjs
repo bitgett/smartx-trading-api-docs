@@ -61,11 +61,11 @@ export function smartx(token = process.env.SMARTX_TOKEN) {
         usdc_budget: usdcBudget
       }),
 
-    // v2 only. The unversioned /cancel_order answers "success" for order ids
-    // that never existed, so falling back to it would make every cancel look
-    // like it worked. Confirm with cancelAndVerify instead.
+    // Unversioned, because v2/cancel_order returns 50000 "internal server
+    // error" on every call while cancelling perfectly well. Neither response is
+    // evidence either way, so use cancelAndVerify.
     cancelOrder: orderId =>
-      post('/service/poly_trade/v2/cancel_order', { order_id: String(orderId) }),
+      post('/service/poly_trade/cancel_order', { order_id: String(orderId) }),
 
     async cancelAndVerify(orderId) {
       await this.cancelOrder(orderId).catch(() => null);
