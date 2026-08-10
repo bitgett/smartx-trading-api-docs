@@ -1,0 +1,7 @@
+{
+  "name": "smartx-trading-api-docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Documentation and examples for the SmartX trading API"
+}
