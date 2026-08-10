@@ -160,23 +160,26 @@ returns `60030 order_id is required`. To cancel several orders, loop.
 Cancelled orders appear in the order list as `order_status: "cancelled"` and
 `exchange_status: "CANCELED"`.
 
-### Two paths, and neither response tells the truth
+### Do not use `v2/cancel_order`, its response is inverted
 
-Both were run against real resting orders on 2026-08-10. Both cancelled. What
-they *said* differed:
+There is also a `v2/cancel_order`. It cancels correctly, but its status code
+means the opposite of what you would expect. Run against real resting orders and
+against ids that never existed, on two separate accounts:
 
-| path | did it cancel | what it returned |
+| call | order cancelled | code returned |
 |---|---|---|
-| `cancel_order` | yes | `200 success`, with the order detail |
-| `v2/cancel_order` | **yes** | `50000 internal server error` |
+| `v2/cancel_order`, real order | **yes** | `50000 internal server error` |
+| `v2/cancel_order`, unknown id | no, nothing to do | `200 success` |
+| `cancel_order`, real order | **yes** | `200 success` |
+| `cancel_order`, unknown id | no, nothing to do | `200 success` |
 
-`v2/cancel_order` reports a server error every time and cancels anyway. And
-`cancel_order` returns `200 success` for order ids that never existed, so its
-success does not prove anything either.
+`v2` reports failure exactly when it succeeds. The shape of that is a handler
+that performs the cancel and then throws while building its response, so the
+`50000` is a symptom rather than a result.
 
-One lies negative, the other lies positive.
-
-**Use `cancel_order`, and confirm against the order list.**
+Use `cancel_order`. It does the same work and reports it correctly. The only
+thing it will not do is tell you that an order id was unknown, which is why the
+check below is still worth keeping.
 
 ```js
 await api.cancelOrder(orderId).catch(() => {});   // the response is not evidence
@@ -189,14 +192,14 @@ if (row && !/cancel/i.test(row.order_status)) {
 }
 ```
 
-### Do not fall back between the two paths
+### Do not chain the two paths
 
-A loop that tries `v2/cancel_order`, sees `50000`, and falls through to
-`cancel_order` will report success on every call no matter what happened,
-because the fallback always succeeds. Worse, the `50000` it was reacting to
-usually meant the cancel had already gone through.
+A loop that tries `v2/cancel_order`, reads `50000` as failure, and falls through
+to `cancel_order` will report success on every call regardless of what happened,
+because the fallback returns `200` unconditionally. And the `50000` it was
+reacting to meant the cancel had already gone through.
 
-Send one request and ask the order list what happened.
+Send one request to `cancel_order` and ask the order list what happened.
 
 ## Before you go live
 

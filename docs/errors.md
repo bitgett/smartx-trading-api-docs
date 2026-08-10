@@ -38,7 +38,7 @@ if (body.code !== 200 && body.code !== 0) {
 | `401` | unauthorized | check the scheme is `jwt` and not `Bearer`, then check the token has not expired |
 | `10002` | invalid parameters | a required query parameter is missing or malformed |
 | `20003` | market not found | the slug does not exist. Confirm it against the app URL |
-| `50000` | internal server error | on `v2/cancel_order` this is the normal response and the cancel still happened. Elsewhere, treat it as a real error |
+| `50000` | internal server error | from `v2/cancel_order` it means the cancel *worked*; use `cancel_order` instead and this stops appearing. Anywhere else, a real error |
 | `60030` | `order_id is required` | cancel takes `order_id`, singular. There is no batch form |
 | `60300` | `insufficient pUSD balance` | budget is well over your free balance. Note that a budget only *slightly* over is capped silently instead, see [Orders](orders.md#usdc_budget-sets-your-size-share_amount-does-not) |
 | `60307` | `limit order shares must be >= 5` | the minimum order is 5 shares, so the minimum spend scales with the limit price |
@@ -50,8 +50,8 @@ Three places where the code and what actually happened come apart:
 | call | says | does |
 |---|---|---|
 | `new_order` → `200` | accepted | may still fail at the venue, asynchronously |
-| `v2/cancel_order` → `50000` | server error | cancels the order |
-| `cancel_order` → `200` on a fake id | success | nothing, the order never existed |
+| `v2/cancel_order` → `50000` | server error | cancels the order. Use `cancel_order` and avoid this |
+| `cancel_order` → `200` on an unknown id | success | nothing, there was no such order |
 
 In all three the order list is the authority. Poll it.
 
