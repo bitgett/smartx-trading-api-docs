@@ -1,19 +1,6 @@
 # SmartX Trading API
 
-> ### ⚠️ Unofficial
->
-> This is **not** official SmartX documentation and is not published or endorsed
-> by SmartX. It was written by observing the live API and confirming each
-> behaviour with real orders, so it describes what the API *does*, not what it
-> promises.
->
-> Nothing here is a contract. Endpoints, fields, and error codes can change
-> without notice and without this repo knowing. Anything marked as a quirk or a
-> workaround may be fixed on the platform side at any time, at which point the
-> workaround becomes the bug.
->
-> Verify against your own account before you trade real size, and treat every
-> code sample as something to read rather than something to trust.
+Unofficial. Community notes, not published by SmartX.
 
 Place and manage prediction-market orders on SmartX from your own code.
 
@@ -107,9 +94,8 @@ money is treating `200` as a fill: the order can fail later, the client never
 hears about it, and it keeps sizing the next order against money it no longer
 has.
 
-## Not affiliated with SmartX
+---
 
-Community documentation, maintained independently. SmartX has not reviewed it
-and is under no obligation to keep the API behaving the way it is described
-here. If something in these pages is wrong, the API is right and the docs are
-wrong; please open an issue.
+Maintained independently of SmartX. The API can change without this repo
+knowing, so if the docs and the API disagree, the API is right. Open an issue
+and it gets fixed.
