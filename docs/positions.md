@@ -71,6 +71,27 @@ budget well over your free balance is rejected with `60300 insufficient pUSD
 balance`, which is the same information a balance check would have given you,
 one step later.
 
+**When you do need the number**, `examples/check-balance.mjs` measures it:
+
+```bash
+node examples/check-balance.mjs
+```
+```
+free balance: 5.292195 USDC   [14 probes]
+
+at these prices that is:
+   5c       105.84 shares
+  50c        10.58 shares
+  75c         7.06 shares
+```
+
+It works by narrowing in on the trimming band described in
+[Orders](orders.md#usdc_budget-sets-your-size-share_amount-does-not): a budget
+slightly over your balance comes back reduced to exactly what you have, which
+is the number. Each step places a limit far below the book and cancels it, so
+nothing can fill, but it does take a dozen or so orders to converge. Cache the
+result; do not call it before every trade.
+
 ⚠️ **With one exception, and it matters.** A budget only *slightly* over your
 balance is not rejected. It is silently reduced to whatever you have, with no
 error and nothing in the response marking it. You asked for $0.20, you own

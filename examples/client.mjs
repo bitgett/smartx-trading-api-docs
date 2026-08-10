@@ -76,6 +76,74 @@ export function smartx(token = process.env.SMARTX_TOKEN) {
       const row = list.find(o => o.order_id === String(orderId));
       const gone = !row || /cancel/i.test(row.order_status || '');
       return { cancelled: gone, status: row?.order_status ?? 'not in list' };
+    },
+
+    // Place, then report what was actually placed rather than what was asked
+    // for. Two things differ: usdc_budget decides the size, and a budget over
+    // your free balance is trimmed without saying so. Use this anywhere the
+    // real size matters, which is anywhere you hedge or size the next order.
+    async placeOrderVerified(params, { waitMs = 3000 } = {}) {
+      const placed = await this.placeOrder(params);
+      await new Promise(r => setTimeout(r, waitMs));
+      const { list } = await this.orders({});
+      const row = list.find(o => o.order_id === placed.order_id);
+      if (!row) return { orderId: placed.order_id, pending: true, requested: params.usdcBudget };
+      const spent = Number(row.usdc_budget);
+      return {
+        orderId: placed.order_id,
+        status: row.order_status,
+        exchangeStatus: row.exchange_status,
+        shares: Number(row.share_amount),
+        spent,
+        filledShares: Number(row.filled_share),
+        filledUsdc: Number(row.filled_usdc),
+        requested: params.usdcBudget,
+        trimmed: Math.abs(spent - params.usdcBudget) > 1e-9,
+        error: row.error_msg || null
+      };
+    },
+
+    // There is no balance endpoint, so this measures it.
+    //
+    // A budget a little over your free balance comes back trimmed to exactly
+    // what you have. A budget well over is rejected outright with 60300. So a
+    // single oversized probe does not work: it has to close in on the number
+    // until it lands inside the trimming band, which reports the balance exactly.
+    //
+    // Each step places a limit far below the book, which cannot fill, and
+    // cancels it. Costs nothing but does touch the order book, so cache the
+    // answer rather than calling this in a loop.
+    async freeBalance({ tokenId, cents = 1, ceiling = 10000, maxProbes = 14 } = {}) {
+      if (!tokenId) throw new Error('freeBalance needs a tokenId from a live market');
+
+      const probe = async budget => {
+        let placed;
+        try {
+          placed = await this.placeOrder({ tokenId, side: 'BUY', centsPrice: cents, usdcBudget: budget });
+        } catch (err) {
+          if (/60300/.test(err.message)) return { rejected: true };
+          if (/60307/.test(err.message)) return { tooSmall: true };
+          throw err;
+        }
+        await new Promise(r => setTimeout(r, 2200));
+        const { list } = await this.orders({});
+        const row = list.find(o => o.order_id === placed.order_id);
+        await this.cancelAndVerify(placed.order_id).catch(() => null);
+        const spent = row ? Number(row.usdc_budget) : null;
+        return { accepted: true, spent, trimmed: spent != null && Math.abs(spent - budget) > 1e-9 };
+      };
+
+      let lo = 0, hi = ceiling, probes = 0, best = null;
+      while (probes < maxProbes && hi - lo > 1e-4) {
+        const mid = lo === 0 ? hi / 2 : (lo + hi) / 2;
+        const r = await probe(Number(mid.toFixed(6)));
+        probes++;
+        if (r.tooSmall) break;                      // below the 5 share floor, cannot narrow further
+        if (r.rejected) { hi = mid; continue; }     // balance is under mid
+        if (r.trimmed) return { balance: r.spent, probes, exact: true };
+        lo = mid; best = r.spent;                   // accepted in full, balance is at least this
+      }
+      return { balance: best, probes, exact: false, note: best == null ? 'could not measure' : `at least ${best}` };
     }
   };
 }

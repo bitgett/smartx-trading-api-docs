@@ -1,13 +1,28 @@
 # SmartX Trading API
 
+> ### ⚠️ Unofficial
+>
+> This is **not** official SmartX documentation and is not published or endorsed
+> by SmartX. It was written by observing the live API and confirming each
+> behaviour with real orders, so it describes what the API *does*, not what it
+> promises.
+>
+> Nothing here is a contract. Endpoints, fields, and error codes can change
+> without notice and without this repo knowing. Anything marked as a quirk or a
+> workaround may be fixed on the platform side at any time, at which point the
+> workaround becomes the bug.
+>
+> Verify against your own account before you trade real size, and treat every
+> code sample as something to read rather than something to trust.
+
 Place and manage prediction-market orders on SmartX from your own code.
 
 SmartX runs the execution side for you. You send an intent (which outcome, which
 side, what price, how much) and the platform signs and submits it, so there is no
 wallet plumbing, no gas handling, and no key management in your client.
 
-> Everything here was read off live traffic and verified with real orders on
-> 2026-08-10, including the parts that behave oddly. Start with
+> Everything here was verified against the live API on 2026-08-10, on two
+> accounts, including the parts that behave oddly. Start with
 > [Authentication](docs/authentication.md), then [Orders](docs/orders.md).
 
 ---
@@ -23,7 +38,7 @@ wallet plumbing, no gas handling, and no key management in your client.
 | Inspect one market | your position in a single market |
 | Read market data | prices and outcome ids for any listed market |
 
-There is no endpoint for your cash balance. See [Positions](docs/positions.md#cash-balance).
+| Measure your balance | there is no endpoint, so `examples/check-balance.mjs` works it out. See [Positions](docs/positions.md#cash-balance) |
 
 ## Quickstart
 
@@ -91,3 +106,10 @@ Read [Orders](docs/orders.md#before-you-go-live). The one that has actually cost
 money is treating `200` as a fill: the order can fail later, the client never
 hears about it, and it keeps sizing the next order against money it no longer
 has.
+
+## Not affiliated with SmartX
+
+Community documentation, maintained independently. SmartX has not reviewed it
+and is under no obligation to keep the API behaving the way it is described
+here. If something in these pages is wrong, the API is right and the docs are
+wrong; please open an issue.
