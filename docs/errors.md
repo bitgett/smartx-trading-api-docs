@@ -40,6 +40,8 @@ if (body.code !== 200 && body.code !== 0) {
 | `20003` | market not found | the slug does not exist. Confirm it against the app URL |
 | `50000` | internal server error | on `v2/cancel_order` this is the normal response and the cancel still happened. Elsewhere, treat it as a real error |
 | `60030` | `order_id is required` | cancel takes `order_id`, singular. There is no batch form |
+| `60300` | `insufficient pUSD balance` | budget is well over your free balance. Note that a budget only *slightly* over is capped silently instead, see [Orders](orders.md#usdc_budget-sets-your-size-share_amount-does-not) |
+| `60307` | `limit order shares must be >= 5` | the minimum order is 5 shares, so the minimum spend scales with the limit price |
 
 ## A response code is not an outcome
 

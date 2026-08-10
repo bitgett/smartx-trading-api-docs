@@ -31,32 +31,46 @@ JavaScript number and you will silently corrupt it past 2^53.
 
 ### `usdc_budget` sets your size, `share_amount` does not
 
-Send `share_amount: 5` and you will not get 5 shares. The platform sizes the
-order from `usdc_budget`, and `share_amount` comes back overwritten with what it
-actually placed. Three live orders on the same market at a 2c limit:
+Send `share_amount: 5` and you will not get 5 shares. Size comes from
+`usdc_budget`, and `share_amount` comes back overwritten with what was actually
+placed. Every order below sent `share_amount: 5` at a 2c limit, on an account
+holding $0.189852 of free pUSD:
 
-| sent `share_amount` | sent `usdc_budget` | shares actually placed |
-|---|---|---|
-| 5 | 0.12 | 6 |
-| 5 | 0.12 | 6 |
-| 5 | 0.20 | 9.4926 |
+| sent `usdc_budget` | shares placed | notional | |
+|---|---|---|---|
+| 0.10 | 5 | 0.10 | as asked |
+| 0.12 | 6 | 0.12 | as asked |
+| 0.15 | 7.5 | 0.15 | as asked |
+| 0.20 | 9.4926 | 0.189852 | **silently capped to the free balance** |
+| 0.25 | — | — | rejected, `60300 insufficient pUSD balance` |
 
-The first two are exactly `budget / price`. The third is about 5% short of it,
-with the difference held back against fees, even though this market reports
-`fee_rate: 0`. We could not derive a rule that predicts both, so do not build
-one into your sizing.
+So: `shares = usdc_budget / price`, exactly, until the budget runs past your
+free balance.
 
-**Two consequences.**
+**A budget slightly over your balance is quietly reduced.** No error, no flag.
+The 0.20 order came back as 0.189852 and nothing in the response said it had
+been trimmed. Go far enough over and you get `60300` instead, but there is a
+band where you simply get a smaller position than you asked for.
 
-Budget is the control. Set `usdc_budget` to what you are willing to spend and
-treat `share_amount` as a field you send because the API requires it.
+**Read your size back.** The order record carries the real `share_amount`,
+`qty_num` and `usdc_budget`. Anything downstream that depends on position size,
+hedging above all, has to use those and not the numbers you sent.
 
-Read your size back. The order record carries the real `share_amount`,
-`qty_num` and `usdc_budget`. Anything that depends on position size, hedging in
-particular, has to use those and not the numbers you sent.
+**Sizes are fractional.** `9.4926` and `7.5` shares are normal results. Do not
+assume integers.
 
-Sizes can be fractional. `9.4926` shares is a normal result, so do not assume
-integers anywhere downstream.
+**Minimum 5 shares.** Below that you get `60307 limit order shares must be >= 5`.
+At a 2c limit that is a $0.10 floor; at 50c it is $2.50.
+
+### Reading your free balance
+
+There is no balance endpoint ([Positions](positions.md#cash-balance)), but the
+sizing behaviour above leaks it. Send a limit order with a budget you know is
+too large, at a price far from the book so it cannot fill, and read
+`usdc_budget` off the resulting order: that is your free balance. Then cancel it.
+
+It works, and it is the only method we have. Treat it as a symptom of the
+missing endpoint rather than a technique worth building on.
 
 **Response**
 

@@ -67,9 +67,11 @@ GET /service/poly_trade/portfolio    404
 GET /service/poly_trade/user_info    404
 ```
 
-In practice the only reliable read on free cash is the failure message from a
-rejected order, which reports balance and committed funds in micro-USDC. See
-[Orders](orders.md#list-your-orders). Checking the app is the alternative.
+Two indirect reads exist, both described in
+[Orders](orders.md#reading-your-free-balance): place a deliberately oversized
+limit order far from the book and read back the budget it was capped to, or read
+the balance figures out of a rejected order's `error_msg`. Checking the app is
+the alternative.
 
 This is a real gap for unattended clients and is on the list in
 [Authentication](authentication.md#what-we-are-asking-the-platform-for).
