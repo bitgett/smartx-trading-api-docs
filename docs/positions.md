@@ -57,21 +57,26 @@ spendable will oversize the next order. Wait for the balance to move.
 
 ## Cash balance
 
-There is no endpoint that returns your USDC cash balance. `positions` values
-what you hold, not what you have left to spend.
-
-Two paths that look like they should work do not:
+There is no endpoint for your cash balance. `positions` values what you hold,
+not what you have left to spend. Two paths that look like they should work do
+not exist:
 
 ```
 GET /service/poly_trade/portfolio    404
 GET /service/poly_trade/user_info    404
 ```
 
-Two indirect reads exist, both described in
-[Orders](orders.md#reading-your-free-balance): place a deliberately oversized
-limit order far from the book and read back the budget it was capped to, or read
-the balance figures out of a rejected order's `error_msg`. Checking the app is
-the alternative.
+**You mostly do not need one.** Send the order you want and let it answer: a
+budget well over your free balance is rejected with `60300 insufficient pUSD
+balance`, which is the same information a balance check would have given you,
+one step later.
 
-This is a real gap for unattended clients and is on the list in
-[Authentication](authentication.md#what-we-are-asking-the-platform-for).
+⚠️ **With one exception, and it matters.** A budget only *slightly* over your
+balance is not rejected. It is silently reduced to whatever you have, with no
+error and nothing in the response marking it. You asked for $0.20, you own
+$0.19 worth, and only the order record shows it.
+
+So "the order failed, therefore I am out of money" is safe, but "the order
+succeeded, therefore I got what I asked for" is not. Read `share_amount` back
+off the order after placing. See
+[Orders](orders.md#usdc_budget-sets-your-size-share_amount-does-not).

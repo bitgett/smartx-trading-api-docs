@@ -1,11 +1,12 @@
 # Authentication
 
-> **This is the interim method.** SmartX does not issue API keys yet, so today a
-> client authenticates with the same session token the web app uses. It works,
-> and it is what our own bots run on, but it expires and it cannot be rotated
-> programmatically. A proper key flow is the open item on this API. If you are
-> building something you intend to leave unattended, read [Known limits](#known-limits)
-> first.
+You authenticate with the session token from the web app. Sign in, copy the
+token out of your browser, put it in an environment variable. That is the whole
+flow, and it is what our own trading clients run on.
+
+It expires every 14 days and it carries full account access, so read
+[What to know](#what-to-know) before you leave anything running unattended.
+Issued API keys are on the roadmap and this page will change when they land.
 
 ## Headers
 
@@ -40,23 +41,26 @@ export SMARTX_TOKEN="jwt eyJhbGciOi..."
 Keep it out of source control. Treat it exactly as you would a password: it can
 place and sell orders on your account.
 
-## Known limits
+## What to know
 
-**It expires.** Tokens last about 14 days. When one lapses every call starts
-returning `403` and you repeat the steps above. There is no refresh endpoint
-exposed to clients.
+**It expires after about 14 days.** When it lapses every call returns `403` and
+you repeat the steps above. There is no refresh endpoint, so plan for the
+manual step rather than being surprised by it.
 
-**It cannot be scoped.** The token carries your whole session. There is no
-read-only variant, so a process that only needs to watch positions holds the
-same power as one that can liquidate them.
+**It is your whole account.** There is no read-only variant. A script that only
+watches positions holds exactly the same power as one that can sell them, so
+treat the token like a password and keep it in an environment variable, never
+in the code you commit.
 
-**It cannot be revoked individually.** Signing out invalidates the session,
-which takes down every client using it at once.
+**Signing out kills every client at once.** The token is the web session, so
+logging out of the browser stops anything else using it.
 
-**Automate the expiry, do not fight it.** Store the issue date next to the
-token, alert yourself two days before the 14 days are up, and refresh on a
-schedule rather than discovering it through a wall of `403`s at the worst
-moment.
+**Run it on your own account, not someone else's.** Anyone holding this token
+can trade with your money.
+
+**Track the expiry yourself.** Store the date you copied it next to the token
+and refresh a couple of days early, rather than finding out through a wall of
+`403`s mid-position.
 
 ```json
 {
@@ -65,13 +69,7 @@ moment.
 }
 ```
 
-## What we are asking the platform for
+## On the roadmap
 
-Recorded here so the gap is visible rather than folklore:
-
-1. Issued API keys, created and revoked from account settings
-2. A read-only scope, so a monitoring process cannot trade
-3. Documented lifetime and a refresh endpoint
-4. Per-key rate limits, published
-
-Until those exist, this page describes the only method available.
+Issued API keys, a read-only scope, and a documented refresh flow. When they
+arrive this page changes and the session-token method becomes the fallback.

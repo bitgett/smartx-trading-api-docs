@@ -6,10 +6,9 @@ SmartX runs the execution side for you. You send an intent (which outcome, which
 side, what price, how much) and the platform signs and submits it, so there is no
 wallet plumbing, no gas handling, and no key management in your client.
 
-> **Status: draft, under review.** Endpoints and response fields here were read
-> off live traffic on 2026-08-10 and are accurate as of that date. Authentication
-> is the part still being finalised. See [Authentication](docs/authentication.md)
-> before you build anything you intend to leave running.
+> Everything here was read off live traffic and verified with real orders on
+> 2026-08-10, including the parts that behave oddly. Start with
+> [Authentication](docs/authentication.md), then [Orders](docs/orders.md).
 
 ---
 
@@ -35,8 +34,20 @@ export SMARTX_TOKEN="jwt eyJ..."      # see docs/authentication.md
 node examples/list-positions.mjs
 ```
 
-If that prints your positions, you are connected. Then read
-[Orders](docs/orders.md) before sending anything.
+If that prints your positions, you are connected.
+
+**Three things to know before your first order**, each of which has surprised
+someone already:
+
+1. **The minimum order is 5 shares**, so the minimum spend scales with price. At
+   a 2c limit that is $0.10; at 50c it is $2.50. Below it you get
+   `60307 limit order shares must be >= 5`.
+2. **`usdc_budget` sets your size, `share_amount` is ignored.** Read the real
+   size back off the order afterwards.
+3. **`200` means accepted, not filled.** Orders can fail later, asynchronously.
+
+All three are in [Orders](docs/orders.md), which is worth reading in full before
+you send anything with real size behind it.
 
 ## Base URL
 

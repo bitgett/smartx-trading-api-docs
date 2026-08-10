@@ -62,15 +62,14 @@ assume integers.
 **Minimum 5 shares.** Below that you get `60307 limit order shares must be >= 5`.
 At a 2c limit that is a $0.10 floor; at 50c it is $2.50.
 
-### Reading your free balance
+### You do not need a balance check
 
-There is no balance endpoint ([Positions](positions.md#cash-balance)), but the
-sizing behaviour above leaks it. Send a limit order with a budget you know is
-too large, at a price far from the book so it cannot fill, and read
-`usdc_budget` off the resulting order: that is your free balance. Then cancel it.
+There is no balance endpoint ([Positions](positions.md#cash-balance)) and for
+most clients that is fine: send the order, and `60300` tells you when you are
+out of money.
 
-It works, and it is the only method we have. Treat it as a symptom of the
-missing endpoint rather than a technique worth building on.
+The one thing you cannot skip is reading `share_amount` back, because of the
+silent cap above. Failure is loud, but a short fill is not.
 
 **Response**
 
